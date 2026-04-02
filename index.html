@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Meal Tracker</title>
+
+  <meta name="theme-color" content="#f5ede0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Meal Tracker" />
+  <link rel="manifest" href="manifest.json" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { display:['Fraunces','serif'], body:['DM Sans','sans-serif'] },
+          colors: {
+            cream: { 50:'#fefcf9',100:'#fdf6ec',200:'#f9ecd8',300:'#f5e0c4',400:'#f0d0a8' },
+            spice: { 400:'#e8945a',500:'#d97d42',600:'#c06830' },
+            herb:  { 400:'#7aab7c',500:'#5d9460',600:'#4a7a4d' },
+            clay:  { 700:'#5c3d2e',800:'#3d2a1e',900:'#2a1e15' },
+          },
+          boxShadow: {
+            card:'0 2px 16px rgba(92,61,46,0.10),0 1px 4px rgba(92,61,46,0.06)',
+            btn:'0 4px 16px rgba(217,125,66,0.40)',
+          },
+          animation: {
+            'slide-up':'slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1) both',
+            'fade-in':'fadeIn 0.2s ease-out both',
+            'bounce-in':'bounceIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both',
+            'shake':'shake 0.4s ease-in-out',
+          },
+          keyframes: {
+            slideUp:  {'0%':{transform:'translateY(20px)',opacity:'0'},'100%':{transform:'translateY(0)',opacity:'1'}},
+            fadeIn:   {'0%':{opacity:'0'},'100%':{opacity:'1'}},
+            bounceIn: {'0%':{transform:'scale(0.8)',opacity:'0'},'100%':{transform:'scale(1)',opacity:'1'}},
+            shake:    {'0%,100%':{transform:'translateX(0)'},'25%':{transform:'translateX(-6px)'},'75%':{transform:'translateX(6px)'}},
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    *{-webkit-tap-highlight-color:transparent;box-sizing:border-box}
+    body{font-family:'DM Sans',sans-serif;background-color:#f5ede0;min-height:100dvh;background-image:radial-gradient(ellipse at 20% 0%,rgba(232,148,90,.12) 0%,transparent 50%),radial-gradient(ellipse at 80% 100%,rgba(122,171,124,.10) 0%,transparent 50%)}
+
+    /* Meal checkboxes */
+    .meal-cb{position:relative;display:flex;align-items:center;gap:.5rem;cursor:pointer;user-select:none}
+    .meal-cb input{position:absolute;opacity:0;width:0;height:0}
+    .ck{width:26px;height:26px;border-radius:8px;border:2px solid #d0b9a0;background:#fff;display:flex;align-items:center;justify-content:center;transition:all .18s cubic-bezier(.34,1.56,.64,1);flex-shrink:0}
+    .meal-cb input:checked+.ck{border-color:transparent;transform:scale(1.08)}
+    .meal-cb:active .ck{transform:scale(.92)}
+    .ck svg{opacity:0;transform:scale(.5);transition:all .15s cubic-bezier(.34,1.56,.64,1)}
+    .meal-cb input:checked+.ck svg{opacity:1;transform:scale(1)}
+    .cb-bf input:checked+.ck{background:linear-gradient(135deg,#f59e0b,#f97316)}
+    .cb-ln input:checked+.ck{background:linear-gradient(135deg,#10b981,#059669)}
+    .cb-dn input:checked+.ck{background:linear-gradient(135deg,#6366f1,#8b5cf6)}
+    .cb-bf:hover .ck{border-color:#f59e0b;background:#fef3c7}
+    .cb-ln:hover .ck{border-color:#10b981;background:#d1fae5}
+    .cb-dn:hover .ck{border-color:#6366f1;background:#ede9fe}
+
+    /* Toast */
+    .toast{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 100px);left:50%;transform:translateX(-50%) translateY(20px);opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);z-index:1000;pointer-events:none;white-space:nowrap}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+    /* Bottom bar */
+    .btm-bar{position:fixed;bottom:0;left:0;right:0;padding:16px 24px;padding-bottom:calc(16px + env(safe-area-inset-bottom));background:linear-gradient(to top,#f5ede0 80%,transparent);z-index:50}
+
+    /* Avatar ring */
+    .av-ring{background:linear-gradient(135deg,#e8945a,#7aab7c);padding:2px;border-radius:50%}
+
+    /* PIN dots */
+    .pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid #d0b9a0;transition:all .2s cubic-bezier(.34,1.56,.64,1)}
+    .pin-dot.on{background:#d97d42;border-color:#d97d42;transform:scale(1.15)}
+
+    /* Modal */
+    .backdrop{position:fixed;inset:0;background:rgba(42,30,21,.45);z-index:200;backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .2s ease both}
+    .sheet{background:#fdf6ec;border-radius:28px 28px 0 0;padding:28px 24px;padding-bottom:calc(28px + env(safe-area-inset-bottom));width:100%;max-width:480px;animation:slideUp .3s cubic-bezier(.34,1.56,.64,1) both}
+
+    /* Skeleton */
+    .sk{background:linear-gradient(90deg,#f0d8c0 25%,#f5e8d5 50%,#f0d8c0 75%);background-size:200% 100%;animation:sh 1.4s infinite;border-radius:12px}
+    @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+    /* Unit dots */
+    .udot{width:6px;height:6px;border-radius:50%;display:inline-block;transition:all .2s ease}
+
+    ::-webkit-scrollbar{width:4px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:#d0b9a0;border-radius:4px}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel">
+const { useState, useCallback, useRef, useEffect, useMemo } = React;
+
+// ═══════════════════════════════════════════════════════════
+// CONFIG  🔧  — update these two values before deploying
+// ═══════════════════════════════════════════════════════════
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyDV5iSQVCY3JWRw61moIxaNvnmbjCxmR_18_ysKYyu6ikVGvSjXRWNjLIeSTcxcM_fbw/exec";
+const ADMIN_PIN       = "1234";   // ← change to your PIN
+
+// ═══════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════
+const MEALS = [
+  { key:"Breakfast", emoji:"🌅", cls:"cb-bf" },
+  { key:"Lunch",     emoji:"☀️",  cls:"cb-ln" },
+  { key:"Dinner",    emoji:"🌙",  cls:"cb-dn" },
+];
+
+const AV_COLORS = ["ffdfbf","d1d4f9","c0aede","b6e3f4","ffd5dc","c1f4c5","f4c5e8","c5e8f4","f4e8c5","e8f4c5"];
+const avatarUrl = (name, idx=0) =>
+  `https://api.dicebear.com/7.x/thumbs/svg?seed=${encodeURIComponent(name||"?")}&backgroundColor=${AV_COLORS[idx%AV_COLORS.length]}`;
+
+// ═══════════════════════════════════════════════════════════
+// API
+// ═══════════════════════════════════════════════════════════
+async function apiPost(body) {
+  const r = await fetch(APPS_SCRIPT_URL, {
+    method:"POST", headers:{"Content-Type":"text/plain"},
+    body:JSON.stringify(body), redirect:"follow",
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const d = await r.json();
+  if (!d.success) throw new Error(d.error || "Unknown error");
+  return d;
+}
+
+async function apiGetPeople() {
+  const r = await fetch(`${APPS_SCRIPT_URL}?action=getPeople`, { redirect:"follow" });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const d = await r.json();
+  if (!d.success) throw new Error(d.error || "Failed to load");
+  return d.people;
+}
+
+const apiSubmitMeals  = (persons, sel) => {
+  const ts = new Date().toISOString();
+  const entries = [];
+  persons.forEach(p => MEALS.forEach(m => { if (sel[p.id]?.[m.key]) entries.push({name:p.name,meal:m.key,units:1,timestamp:ts}); }));
+  return apiPost({action:"submitMeals",entries}).then(() => entries);
+};
+const apiAddPerson    = name   => apiPost({action:"addPerson", name});
+const apiTogglePerson = (id,a) => apiPost({action:"togglePerson", id, active:a});
+const apiRemovePerson = id     => apiPost({action:"removePerson", id});
+
+// ═══════════════════════════════════════════════════════════
+// SHARED UI
+// ═══════════════════════════════════════════════════════════
+function Toast({message, type, visible}) {
+  return (
+    <div className={`toast ${visible?"show":""}`}>
+      <div className={`${type==="success"?"bg-clay-800 text-cream-100":"bg-red-800 text-red-100"} px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 text-sm font-medium`}>
+        <span>{type==="success"?"✅":"❌"}</span>{message}
+      </div>
+    </div>
+  );
+}
+
+function OfflineBanner() {
+  const [off, setOff] = useState(!navigator.onLine);
+  useEffect(() => {
+    const on=()=>setOff(false), dn=()=>setOff(true);
+    window.addEventListener("online",on); window.addEventListener("offline",dn);
+    return ()=>{ window.removeEventListener("online",on); window.removeEventListener("offline",dn); };
+  },[]);
+  if (!off) return null;
+  return (
+    <div className="mx-4 mb-2 px-4 py-2.5 bg-amber-100 border border-amber-300 rounded-xl flex items-center gap-2 animate-fade-in">
+      <span>📡</span>
+      <p className="text-xs font-medium text-amber-800">You're offline — changes require a connection.</p>
+    </div>
+  );
+}
+
+function Spin({sz=5}) {
+  return (
+    <svg className={`animate-spin w-${sz} h-${sz}`} viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+      <path  className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+    </svg>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// COOK SCREEN
+// ═══════════════════════════════════════════════════════════
+function MealCheckbox({meal, checked, onChange}) {
+  return (
+    <label className={`meal-cb ${meal.cls}`}>
+      <input type="checkbox" checked={checked} onChange={e=>onChange(meal.key,e.target.checked)}/>
+      <span className="ck">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M2.5 7L5.5 10L11.5 4" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </span>
+      <span className="text-sm font-medium text-clay-700 select-none">{meal.emoji} {meal.key}</span>
+    </label>
+  );
+}
+
+function PersonCard({person, meals, onChange}) {
+  const cnt = Object.values(meals).filter(Boolean).length;
+  const all = cnt===3;
+  const toggleAll = () => MEALS.forEach(m=>onChange(person.id,m.key,!all));
+  return (
+    <div className="bg-white rounded-2xl p-4 shadow-card">
+      <div className="flex items-center justify-between mb-3.5">
+        <div className="flex items-center gap-3">
+          <div className="av-ring"><img src={person.avatar||avatarUrl(person.name)} alt={person.name} className="w-11 h-11 rounded-full object-cover block"/></div>
+          <div>
+            <p className="font-display font-semibold text-clay-800 text-base leading-tight">{person.name}</p>
+            <p className="text-xs text-clay-700/50 mt-0.5">{cnt===0?"No meals":`${cnt} meal${cnt>1?"s":""}`}</p>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex gap-1">
+            {[0,1,2].map(i=><span key={i} className={`udot ${i<cnt?"bg-spice-500":"bg-cream-300"}`}/>)}
+          </div>
+          <button onClick={toggleAll} className={`text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-2xl transition-all ${all?"bg-clay-700 text-cream-100":"bg-cream-200 text-clay-700"}`}>
+            {all?"Clear":"All"}
+          </button>
+        </div>
+      </div>
+      <div className="flex flex-col gap-2.5 pt-3 border-t border-cream-200">
+        {MEALS.map(m=><MealCheckbox key={m.key} meal={m} checked={meals[m.key]||false} onChange={(k,v)=>onChange(person.id,k,v)}/>)}
+      </div>
+    </div>
+  );
+}
+
+function SkelCard() {
+  return (
+    <div className="bg-white rounded-2xl p-4 shadow-card">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="sk w-11 h-11 rounded-full flex-shrink-0"/>
+        <div className="flex-1"><div className="sk h-4 w-24 mb-2"/><div className="sk h-3 w-16"/></div>
+      </div>
+      <div className="sk h-px w-full mb-3" style={{background:"#f0d8c0"}}/>
+      {[1,2,3].map(i=><div key={i} className="sk h-7 w-full mb-2"/>)}
+    </div>
+  );
+}
+
+// Hidden admin trigger: tap gear icon 3× within 800ms
+function AdminTrigger({onUnlock}) {
+  const taps=useRef(0), timer=useRef(null);
+  const tap = () => {
+    taps.current++;
+    clearTimeout(timer.current);
+    if(taps.current>=3){taps.current=0;onUnlock();return;}
+    timer.current=setTimeout(()=>{taps.current=0;},800);
+  };
+  return (
+    <button onClick={tap} className="w-8 h-8 flex items-center justify-center opacity-20 active:opacity-50 transition-opacity" aria-label="Admin">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="3" stroke="#5c3d2e" strokeWidth="2"/>
+        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="#5c3d2e" strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    </button>
+  );
+}
+
+function CookScreen({onAdminTap, showToast}) {
+  const [persons,setPersons]   = useState([]);
+  const [pLoading,setPLoading] = useState(true);
+  const [pError,setPError]     = useState(null);
+  const [sel,setSel]           = useState({});
+  const [busy,setBusy]         = useState(false);
+  const submitting              = useRef(false);
+
+  const mkSel = useCallback(ps=>{const s={};ps.forEach(p=>{s[p.id]={Breakfast:false,Lunch:false,Dinner:false}});return s;},[]);
+
+  const load = useCallback(async()=>{
+    setPLoading(true);setPError(null);
+    try{const all=await apiGetPeople();const act=all.filter(p=>p.active);setPersons(act);setSel(mkSel(act));}
+    catch(e){setPError(e.message);}
+    finally{setPLoading(false);}
+  },[mkSel]);
+
+  useEffect(()=>{load();},[load]);
+
+  const change = useCallback((pid,mk,v)=>setSel(prev=>({...prev,[pid]:{...prev[pid],[mk]:v}})),[]);
+  const clear  = useCallback(()=>setSel(mkSel(persons)),[persons,mkSel]);
+
+  const total = useMemo(()=>Object.values(sel).reduce((s,m)=>s+Object.values(m).filter(Boolean).length,0),[sel]);
+
+  const submit = async()=>{
+    if(total===0||submitting.current)return;
+    submitting.current=true;setBusy(true);
+    try{
+      const pl=await apiSubmitMeals(persons,sel);
+      setSel(mkSel(persons));
+      showToast(`Saved ${pl.length} meal entr${pl.length===1?"y":"ies"} ✅`);
+    }catch(e){showToast("Failed to save. Check connection. ❌","error");}
+    finally{setBusy(false);setTimeout(()=>{submitting.current=false;},1500);}
+  };
+
+  const dateStr = new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+
+  return (
+    <div className="min-h-dvh flex flex-col">
+      <header className="px-5 pt-6 pb-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="font-display text-3xl font-bold text-clay-800 leading-none">Meal<br/><span className="text-spice-500 italic">Tracker</span></h1>
+            <p className="text-xs text-clay-700/60 mt-1.5 font-medium">{dateStr}</p>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            {total>0&&(
+              <div className="bg-spice-500 text-white rounded-2xl px-3.5 py-2 text-center shadow-btn animate-bounce-in">
+                <p className="text-2xl font-display font-bold leading-none">{total}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-widest opacity-90 mt-0.5">{total===1?"unit":"units"}</p>
+              </div>
+            )}
+            <AdminTrigger onUnlock={onAdminTap}/>
+          </div>
+        </div>
+      </header>
+
+      <OfflineBanner/>
+
+      <main className="flex-1 px-4 pb-32 overflow-y-auto">
+        {pLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-2xl mx-auto">
+            {[1,2,3,4].map(i=><SkelCard key={i}/>)}
+          </div>
+        ) : pError ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-4">
+            <p className="text-5xl">😞</p>
+            <p className="text-clay-700 font-medium text-center">Couldn't load people.<br/><span className="text-sm opacity-60">{pError}</span></p>
+            <button onClick={load} className="px-5 py-2.5 bg-spice-500 text-white rounded-xl font-semibold text-sm shadow-btn active:scale-95">Retry</button>
+          </div>
+        ) : persons.length===0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <p className="text-5xl">👥</p>
+            <p className="text-clay-700 font-medium text-center">No active people yet.<br/><span className="text-sm opacity-60">Ask admin to add someone.</span></p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-w-2xl mx-auto">
+            {persons.map((p,i)=>(
+              <div key={p.id} style={{animationDelay:`${i*.05}s`}} className="animate-slide-up">
+                <PersonCard person={p} meals={sel[p.id]||{Breakfast:false,Lunch:false,Dinner:false}} onChange={change}/>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+
+      {!pLoading&&!pError&&persons.length>0&&(
+        <div className="btm-bar">
+          <div className="flex gap-2.5 max-w-lg mx-auto">
+            <button onClick={clear} disabled={total===0||busy} className="px-4 py-4 rounded-2xl bg-cream-200 text-clay-700 font-semibold text-sm disabled:opacity-40 transition-all active:scale-95 flex-shrink-0">Clear</button>
+            <button onClick={submit} disabled={total===0||busy} className="flex-1 py-4 rounded-2xl font-semibold text-base text-white bg-gradient-to-r from-spice-500 to-spice-600 shadow-btn disabled:opacity-40 disabled:shadow-none transition-all active:scale-[.97] flex items-center justify-center gap-2">
+              {busy?<><Spin/><span>Saving…</span></>:<><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>Submit Meals</>}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// PIN GATE
+// ═══════════════════════════════════════════════════════════
+function PinGate({onSuccess, onCancel}) {
+  const [val,setVal]     = useState("");
+  const [shake,setShake] = useState(false);
+  const LEN              = ADMIN_PIN.length;
+
+  const press = d => {
+    if(val.length>=LEN)return;
+    const next=val+d;
+    setVal(next);
+    if(next.length===LEN){
+      if(next===ADMIN_PIN){setTimeout(onSuccess,300);}
+      else{setShake(true);setTimeout(()=>{setVal("");setShake(false);},600);}
+    }
+  };
+
+  return (
+    <div className="backdrop" onClick={onCancel}>
+      <div className="sheet" onClick={e=>e.stopPropagation()}>
+        <div className="w-10 h-1 bg-cream-300 rounded-full mx-auto mb-6"/>
+        <h2 className="font-display text-2xl font-bold text-clay-800 text-center mb-1">Admin Access</h2>
+        <p className="text-sm text-clay-700/60 text-center mb-8">Enter your PIN to continue</p>
+
+        <div className={`flex justify-center gap-4 mb-10 ${shake?"animate-shake":""}`}>
+          {Array.from({length:LEN}).map((_,i)=>(
+            <div key={i} className={`pin-dot ${i<val.length?"on":""}`}/>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          {[1,2,3,4,5,6,7,8,9].map(d=>(
+            <button key={d} onClick={()=>press(String(d))} className="py-4 rounded-2xl bg-cream-200 text-clay-800 text-xl font-semibold active:scale-95 transition-transform">{d}</button>
+          ))}
+          <div/>
+          <button onClick={()=>press("0")} className="py-4 rounded-2xl bg-cream-200 text-clay-800 text-xl font-semibold active:scale-95 transition-transform">0</button>
+          <button onClick={()=>setVal(v=>v.slice(0,-1))} className="py-4 rounded-2xl bg-cream-200 text-clay-800 flex items-center justify-center active:scale-95 transition-transform">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M21 4H8l-7 8 7 8h13a2 2 0 002-2V6a2 2 0 00-2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M18 9l-6 6M12 9l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+        <button onClick={onCancel} className="w-full py-3 text-sm text-clay-700/50 font-medium">Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// ADMIN SCREEN
+// ═══════════════════════════════════════════════════════════
+function AdminScreen({onBack, showToast}) {
+  const [persons,setPersons]   = useState([]);
+  const [loading,setLoading]   = useState(true);
+  const [error,setError]       = useState(null);
+  const [addOpen,setAddOpen]   = useState(false);
+  const [delId,setDelId]       = useState(null);
+  const [busyId,setBusyId]     = useState(null);
+
+  const load = useCallback(async()=>{
+    setLoading(true);setError(null);
+    try{setPersons(await apiGetPeople());}
+    catch(e){setError(e.message);}
+    finally{setLoading(false);}
+  },[]);
+
+  useEffect(()=>{load();},[load]);
+
+  const doToggle = async p => {
+    setBusyId(p.id);
+    try{
+      await apiTogglePerson(p.id,!p.active);
+      setPersons(prev=>prev.map(x=>x.id===p.id?{...x,active:!x.active}:x));
+      showToast(`${p.name} ${!p.active?"activated":"deactivated"} ✅`);
+    }catch{showToast("Failed to update. ❌","error");}
+    finally{setBusyId(null);}
+  };
+
+  const doRemove = async()=>{
+    const id=delId;setDelId(null);setBusyId(id);
+    try{
+      await apiRemovePerson(id);
+      setPersons(prev=>prev.filter(p=>p.id!==id));
+      showToast("Person removed ✅");
+    }catch{showToast("Failed to remove. ❌","error");}
+    finally{setBusyId(null);}
+  };
+
+  const doAdd = async name=>{
+    const d = await apiAddPerson(name);
+    const np = {id:d.id,name,active:true,order:persons.length+1,avatar:avatarUrl(name,persons.length)};
+    setPersons(prev=>[...prev,np]);
+    showToast(`${name} added ✅`);
+    setAddOpen(false);
+  };
+
+  const active  = persons.filter(p=>p.active);
+  const inactive= persons.filter(p=>!p.active);
+
+  return (
+    <div className="min-h-dvh flex flex-col">
+      {/* Header */}
+      <header className="px-5 pt-6 pb-4 flex items-center gap-3">
+        <button onClick={onBack} className="w-10 h-10 rounded-xl bg-cream-200 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 5l-7 7 7 7" stroke="#5c3d2e" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+        <div className="flex-1">
+          <h1 className="font-display text-2xl font-bold text-clay-800 leading-none">Admin<br/><span className="text-herb-500 italic">Panel</span></h1>
+        </div>
+        <button onClick={()=>setAddOpen(true)} className="flex items-center gap-1.5 px-4 py-2.5 bg-herb-500 text-white rounded-xl font-semibold text-sm shadow-md active:scale-95 transition-transform">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.5" strokeLinecap="round"/></svg>
+          Add Person
+        </button>
+      </header>
+
+      <OfflineBanner/>
+
+      <main className="flex-1 px-4 pb-10 overflow-y-auto">
+        {loading ? (
+          <div className="flex items-center justify-center py-20 gap-3 text-clay-700/50">
+            <Spin sz={6}/><span className="text-sm font-medium">Loading…</span>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-4">
+            <p className="text-5xl">😞</p>
+            <p className="text-clay-700 text-sm text-center">{error}</p>
+            <button onClick={load} className="px-5 py-2.5 bg-spice-500 text-white rounded-xl font-semibold text-sm">Retry</button>
+          </div>
+        ) : (
+          <div className="max-w-lg mx-auto space-y-5">
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white rounded-2xl p-4 shadow-card text-center">
+                <p className="text-3xl font-display font-bold text-herb-500">{active.length}</p>
+                <p className="text-xs text-clay-700/60 font-semibold uppercase tracking-wide mt-0.5">Active</p>
+              </div>
+              <div className="bg-white rounded-2xl p-4 shadow-card text-center">
+                <p className="text-3xl font-display font-bold text-clay-700/40">{inactive.length}</p>
+                <p className="text-xs text-clay-700/60 font-semibold uppercase tracking-wide mt-0.5">Inactive</p>
+              </div>
+            </div>
+
+            {/* List */}
+            {persons.length===0 ? (
+              <div className="flex flex-col items-center py-14 gap-3">
+                <p className="text-5xl">👤</p>
+                <p className="text-clay-700/60 text-sm text-center">No people yet.<br/>Tap "Add Person" to start.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl shadow-card overflow-hidden">
+                {persons.map((p,i)=>(
+                  <div key={p.id}>
+                    {i>0&&<div className="h-px bg-cream-200 mx-4"/>}
+                    <PersonRow person={p} busy={busyId===p.id} onToggle={()=>doToggle(p)} onRemove={()=>setDelId(p.id)}/>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Legend */}
+            <div className="bg-cream-100 rounded-2xl p-4 text-xs text-clay-700/60 space-y-1.5">
+              <p className="font-semibold text-clay-700/80 mb-2">Legend</p>
+              <p>✅ <strong>Green tick</strong> — person is active and appears on cook screen</p>
+              <p>⏸ <strong>Clock icon</strong> — person is inactive (hidden from cook, kept in records)</p>
+              <p>🗑 <strong>Red bin</strong> — permanently removes person (meal history kept)</p>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {addOpen  && <AddModal  onAdd={doAdd}  onClose={()=>setAddOpen(false)} existingCount={persons.length}/>}
+      {delId    && <DelModal  person={persons.find(p=>p.id===delId)} onConfirm={doRemove} onCancel={()=>setDelId(null)}/>}
+    </div>
+  );
+}
+
+function PersonRow({person, busy, onToggle, onRemove}) {
+  return (
+    <div className={`flex items-center gap-3 px-4 py-3.5 transition-opacity ${!person.active?"opacity-50":""}`}>
+      <div className="av-ring flex-shrink-0">
+        <img src={person.avatar||avatarUrl(person.name)} alt={person.name} className="w-10 h-10 rounded-full object-cover block"/>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold text-clay-800 text-sm leading-tight truncate">{person.name}</p>
+        <p className="text-xs text-clay-700/50 mt-0.5">{person.active?"Active":"Inactive"}</p>
+      </div>
+      {busy ? (
+        <div className="w-9 h-9 flex items-center justify-center text-clay-700/40"><Spin sz={4}/></div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <button onClick={onToggle} title={person.active?"Deactivate":"Activate"}
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-90 ${person.active?"bg-herb-500/15 text-herb-600":"bg-cream-200 text-clay-700/50"}`}>
+            {person.active
+              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/><path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+            }
+          </button>
+          <button onClick={onRemove} title="Remove" className="w-9 h-9 rounded-xl bg-red-50 text-red-400 flex items-center justify-center active:scale-90 transition-transform">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// ADD PERSON MODAL
+// ═══════════════════════════════════════════════════════════
+function AddModal({onAdd, onClose, existingCount}) {
+  const [name,setName]     = useState("");
+  const [loading,setLoad]  = useState(false);
+  const [err,setErr]       = useState("");
+  const ref                = useRef(null);
+
+  useEffect(()=>{ setTimeout(()=>ref.current?.focus(),200); },[]);
+
+  const submit = async()=>{
+    const t=name.trim();
+    if(!t){setErr("Please enter a name.");return;}
+    if(t.length<2){setErr("Name must be at least 2 characters.");return;}
+    setLoad(true);setErr("");
+    try{ await onAdd(t); }
+    catch(e){ setErr("Failed to add. Try again."); setLoad(false); }
+  };
+
+  return (
+    <div className="backdrop" onClick={onClose}>
+      <div className="sheet" onClick={e=>e.stopPropagation()}>
+        <div className="w-10 h-1 bg-cream-300 rounded-full mx-auto mb-6"/>
+        <h2 className="font-display text-2xl font-bold text-clay-800 mb-1">Add Person</h2>
+        <p className="text-sm text-clay-700/60 mb-5">They'll appear on the cook screen right away.</p>
+
+        {/* Avatar preview */}
+        <div className="flex items-center gap-4 bg-cream-100 rounded-2xl p-4 mb-5">
+          <div className="av-ring">
+            <img src={avatarUrl(name||"New",existingCount)} alt="preview" className="w-12 h-12 rounded-full object-cover block"/>
+          </div>
+          <div>
+            <p className="font-semibold text-clay-800">{name.trim()||"Preview"}</p>
+            <p className="text-xs text-clay-700/50">Avatar auto-generated from name</p>
+          </div>
+        </div>
+
+        <input
+          ref={ref} type="text" value={name}
+          onChange={e=>{setName(e.target.value);setErr("");}}
+          onKeyDown={e=>e.key==="Enter"&&submit()}
+          placeholder="Enter full name…" maxLength={40}
+          className="w-full px-4 py-3.5 rounded-xl border-2 border-cream-300 bg-white text-clay-800 font-medium text-base placeholder:text-clay-700/30 focus:outline-none focus:border-herb-400 transition-colors"
+        />
+        {err&&<p className="text-red-500 text-xs mt-1.5">{err}</p>}
+
+        <div className="flex gap-2.5 mt-5">
+          <button onClick={onClose} className="flex-1 py-3.5 rounded-xl bg-cream-200 text-clay-700 font-semibold text-sm active:scale-95 transition-transform">Cancel</button>
+          <button onClick={submit} disabled={loading||!name.trim()} className="flex-1 py-3.5 rounded-xl bg-herb-500 text-white font-semibold text-sm shadow-md disabled:opacity-40 active:scale-95 transition-transform flex items-center justify-center gap-2">
+            {loading?<><Spin/><span>Adding…</span></>:"Add Person"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// CONFIRM DELETE MODAL
+// ═══════════════════════════════════════════════════════════
+function DelModal({person, onConfirm, onCancel}) {
+  if(!person) return null;
+  return (
+    <div className="backdrop" onClick={onCancel}>
+      <div className="sheet" onClick={e=>e.stopPropagation()}>
+        <div className="w-10 h-1 bg-cream-300 rounded-full mx-auto mb-6"/>
+        <div className="flex items-center gap-4 mb-6">
+          <div className="w-14 h-14 rounded-2xl bg-red-100 flex items-center justify-center flex-shrink-0">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </div>
+          <div>
+            <p className="font-display font-bold text-clay-800 text-lg">Remove {person.name}?</p>
+            <p className="text-sm text-clay-700/60 mt-0.5">This can't be undone. Meal history is preserved.</p>
+          </div>
+        </div>
+        <div className="flex gap-2.5">
+          <button onClick={onCancel} className="flex-1 py-3.5 rounded-xl bg-cream-200 text-clay-700 font-semibold text-sm active:scale-95 transition-transform">Cancel</button>
+          <button onClick={onConfirm} className="flex-1 py-3.5 rounded-xl bg-red-500 text-white font-semibold text-sm active:scale-95 transition-transform">Remove</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// ROOT
+// ═══════════════════════════════════════════════════════════
+function App() {
+  const [screen,setScreen] = useState("cook"); // "cook" | "pin" | "admin"
+  const [toast,setToast]   = useState({message:"",type:"success",visible:false});
+  const timer              = useRef(null);
+
+  const showToast = useCallback((message,type="success")=>{
+    clearTimeout(timer.current);
+    setToast({message,type,visible:true});
+    timer.current=setTimeout(()=>setToast(t=>({...t,visible:false})),3000);
+  },[]);
+
+  return (
+    <>
+      {screen==="cook"  && <CookScreen  onAdminTap={()=>setScreen("pin")} showToast={showToast}/>}
+      {screen==="pin"   && <PinGate     onSuccess={()=>setScreen("admin")} onCancel={()=>setScreen("cook")}/>}
+      {screen==="admin" && <AdminScreen onBack={()=>setScreen("cook")}    showToast={showToast}/>}
+      <Toast {...toast}/>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+
+<script>
+  if('serviceWorker' in navigator){
+    window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+  }
+</script>
+</body>
+</html>
